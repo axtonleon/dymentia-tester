@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+
+{% block title %}Voice Quiz for {{ patient.first_name }}{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-3xl mx-auto p-8 bg-slate-800 rounded-2xl shadow-2xl text-center space-y-6">
+    <h1 class="text-4xl font-bold text-cyan-400">Voice Quiz: {{ patient.first_name }} {{ patient.last_name }}</h1>
+    
+    <!-- Initial Start Screen -->
+    <div id="start-screen">
+        <p class="text-slate-400 mb-6">Press the button below to begin the assessment.</p>
+        <button id="start-quiz-btn" class="bg-cyan-500 hover:bg-cyan-400 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105">
+            <i class="fas fa-play mr-2"></i> Start Assessment
+        </button>
+    </div>
+    
+    <!-- Active Quiz Screen (hidden by default) -->
+    <div id="quiz-screen" class="hidden space-y-6">
+        <div id="status-container" class="h-16 flex items-center justify-center bg-slate-700/50 rounded-lg">
+            <p id="status-text" class="text-xl text-slate-300">Loading quiz...</p>
+        </div>
+        <button id="control-btn" class="w-24 h-24 bg-slate-500 text-white rounded-full flex items-center justify-center text-4xl transition-all shadow-lg" disabled>
+            <i class="fas fa-spinner fa-spin"></i>
+        </button>
+    </div>
+
+    <!-- Final Report Screen (hidden by default) -->
+    <div id="report-screen" class="hidden text-left bg-slate-700/50 p-6 rounded-lg space-y-6">
+        <h2 class="text-3xl font-semibold border-b border-slate-600 pb-3 text-cyan-400">Assessment Report</h2>
+        
+        <div>
+            <h3 class="text-xl font-bold text-slate-300 mb-2">Caregiver Summary</h3>
+            <p id="report-summary" class="text-slate-200 bg-slate-800/50 p-4 rounded-md whitespace-pre-wrap"></p>
+        </div>
+
+        <div>
+            <h3 class="text-xl font-bold text-slate-300 mb-2">Detailed Results</h3>
+            <ul id="report-details" class="space-y-4">
+                <!-- Detailed results will be populated here by JS -->
+            </ul>
+        </div>
+
+        <div class="text-center pt-4">
+             <button onclick="window.location.reload()" class="bg-cyan-500 hover:bg-cyan-400 text-white font-bold py-2 px-5 rounded-lg">
+                <i class="fas fa-redo mr-2"></i> Start Over
+            </button>
+        </div>
+    </div>
+</div>
+
+{{ patient.id | json_script("patient-id-data") }}
+<script src="{{ url_for('static', path='/js/quiz.js') }}"></script>
+{% endblock %}
