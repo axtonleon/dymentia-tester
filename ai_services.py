@@ -83,7 +83,13 @@ def generate_quiz_summary(patient_name: str, results: List[schemas.QuizResultIte
     for item in results:
         results_str += f"- Question: {item.question_text}\n"
         results_str += f"  Answer: \"{item.transcribed_text}\"\n"
-        results_str += f"  Score: {item.score}/100\n\n"
+        results_str += f"  Score: {item.score}/100\n"
+
+        # Handle response time safely - might be missing in older data
+        response_time = getattr(item, 'response_time', 0.0)
+        if response_time > 0:
+            results_str += f"  Response Time: {response_time}s\n"
+        results_str += "\n"
 
     summary_prompt = PromptTemplate.from_template(
         """
@@ -91,6 +97,10 @@ def generate_quiz_summary(patient_name: str, results: List[schemas.QuizResultIte
         Based on the following results, write a brief, supportive, and encouraging summary for the primary caregiver.
         Focus on a high-level overview. Mention areas of strength and any potential areas of hesitation or struggle, but frame it gently.
         The goal is to provide insight, not a critical report.
+
+        Consider both the accuracy of responses (scores) and response times when providing insights.
+        Response times can indicate processing speed and cognitive fluency, but should be interpreted gently.
+        Normal response times vary widely, so focus on patterns rather than individual times.
 
         Quiz Results for {patient_name}:
         {results}

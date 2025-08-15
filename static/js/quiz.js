@@ -1,234 +1,494 @@
-// --- DOM ELEMENT REFERENCES ---
-const startScreen = document.getElementById('start-screen');
-const quizScreen = document.getElementById('quiz-screen');
-const reportScreen = document.getElementById('report-screen');
-const startQuizBtn = document.getElementById('start-quiz-btn');
-const controlBtn = document.getElementById('control-btn');
-const statusText = document.getElementById('status-text');
-const reportSummary = document.getElementById('report-summary');
-const reportDetails = document.getElementById('report-details');
+document.addEventListener('DOMContentLoaded', () => {
+    const startQuizBtn = document.getElementById('start-quiz-btn');
+    const quizContainer = document.getElementById('quiz-container');
+    const quizSetup = document.getElementById('quiz-setup');
+    const questionCountInput = document.getElementById('question-count-input');
+    const questionDisplay = document.getElementById('question-display');
+    const questionImage = document.getElementById('question-image');
+    const recordBtn = document.getElementById('record-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const resultDiv = document.getElementById('result');
+    const transcribedTextElem = document.getElementById('transcribed-text');
+    const scoreElem = document.getElementById('score');
+    const feedbackElem = document.getElementById('feedback');
+    const nextQuestionBtn = document.getElementById('next-question-btn');
+    const progressBar = document.getElementById('progress-bar');
+    const summaryDiv = document.getElementById('summary');
+    const readAloudBtn = document.getElementById('read-aloud-btn');
+    const startNewQuizBtn = document.getElementById('start-new-quiz-btn');
+    const newQuizSection = document.getElementById('new-quiz-section');
+    const timerDisplay = document.getElementById('timer-display');
 
-// --- STATE MANAGEMENT ---
-const patientId = JSON.parse(document.getElementById('patient-id-data').textContent);
-let allQuestions = [];
-let sessionResults = [];
-let currentQuestionIndex = 0;
+    let quizState = {};
+    let mediaRecorder;
+    let audioChunks = [];
+    let questionStartTime;
+    let isRecording = false;
 
-let mediaRecorder;
-let audioChunks = [];
-let startTime;
-let currentState = 'idle';
-
-// --- CORE LOGIC ---
-
-async function startQuiz() {
-    startScreen.classList.add('hidden');
-    quizScreen.classList.remove('hidden');
-    updateUI('loading-session', 'Initializing assessment...');
-    
-    try {
-        const response = await fetch(`/api/quiz-questions/${patientId}`);
-        if (!response.ok) throw new Error('Could not load quiz session.');
-        allQuestions = await response.json();
-
-        if (allQuestions.length === 0) {
-            updateUI('error', 'No quiz data available for this patient.');
-            return;
+    const readAloud = (text) => {
+        if (text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            speechSynthesis.speak(utterance);
         }
-        
-        sessionResults = [];
-        currentQuestionIndex = 0;
-        askNextQuestion();
-    } catch (error) {
-        console.error("Error starting quiz:", error);
-        updateUI('error', error.message);
-    }
-}
-
-async function askNextQuestion() {
-    if (currentQuestionIndex >= allQuestions.length) {
-        finishQuiz();
-        return;
-    }
-
-    const question = allQuestions[currentQuestionIndex];
-    const progress = `Question ${currentQuestionIndex + 1} of ${allQuestions.length}`;
-    updateUI('getting-question', progress);
-
-    try {
-        const response = await fetch('/api/text-to-speech', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: question.question_text })
-        });
-
-        if (!response.ok) throw new Error('Could not generate question audio.');
-        
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        playQuestionAudio(audioUrl);
-    } catch (error) {
-         console.error("Error getting question audio:", error);
-         updateUI('error', 'Could not get question audio.');
-    }
-}
-
-function playQuestionAudio(audioUrl) {
-    updateUI('playing-question', 'Listen carefully...');
-    const audio = new Audio(audioUrl);
-    audio.play();
-    audio.onended = () => {
-        updateUI('ready-to-record', 'Press the button to start recording');
     };
-}
 
-async function startRecording() {
-    updateUI('recording', 'Recording... Press to stop');
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
-        mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
-        mediaRecorder.onstop = uploadAudio; 
-        mediaRecorder.start();
-        startTime = Date.now();
-    } catch (error) {
-        console.error("Error accessing microphone:", error);
-        updateUI('error', 'Microphone access denied.');
-    }
-}
+    const fetchQuestions = async (questionCount) => {
+        try {
+            const response = await fetch(`/api/quiz-questions?count=${questionCount}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to fetch questions');
+            }
+            const questions = await response.json();
+            quizState = {
+                questions: questions,
+                currentQuestionIndex: 0,
+                results: []
+            };
+            sessionStorage.setItem('quizState', JSON.stringify(quizState));
+            displayQuestion();
+        } catch (error) {
+            console.error('Error fetching questions:', error);
+            questionDisplay.textContent = `Could not load questions: ${error.message}. Please try again later.`;
+        }
+    };
 
-function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-    }
-}
+    const displayQuestion = () => {
+        const question = quizState.questions[quizState.currentQuestionIndex];
+        questionDisplay.textContent = question.question;
+        questionImage.src = `/static/uploads/${question.image_path}`;
+        resultDiv.style.display = 'none';
 
-async function uploadAudio() {
-    updateUI('evaluating', 'Evaluating your answer...');
-    const responseTime = (Date.now() - startTime) / 1000;
-    const currentQuestion = allQuestions[currentQuestionIndex];
+        // Reset recording UI to initial state
+        recordBtn.disabled = false;
+        recordBtn.innerHTML = '<span class="flex items-center justify-center"><svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3"></circle></svg>Start Recording</span>';
+        recordBtn.className = 'w-full sm:w-auto px-6 py-3 font-bold text-white bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg shadow-md dark:shadow-lg transition duration-300';
+        recordBtn.style.display = 'block';
 
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'response.webm');
-    formData.append('response_time', responseTime);
-    formData.append('reference_answer_b64', btoa(currentQuestion.reference_answer));
+        // Reset stop button to initial state
+        stopBtn.disabled = true;
+        stopBtn.innerHTML = '<span class="flex items-center justify-center"><svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><rect x="6" y="6" width="8" height="8"></rect></svg>Stop Recording</span>';
+        stopBtn.className = 'w-full sm:w-auto px-6 py-3 font-bold text-white bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg shadow-md dark:shadow-lg transition duration-300';
+        stopBtn.style.display = 'none';
 
-    try {
-        const response = await fetch('/api/submit-answer', { method: 'POST', body: formData });
-        if (!response.ok) throw new Error('Could not evaluate answer.');
-        
-        const result = await response.json();
-        
-        sessionResults.push({
-            question_text: currentQuestion.question_text,
-            transcribed_text: result.transcribed_text,
-            score: result.score,
-            feedback: result.feedback
+        if (nextQuestionBtn) {
+            nextQuestionBtn.style.display = 'none';
+        }
+        updateProgressBar();
+        readAloud(question.question);
+
+        // Start timing when question is displayed
+        questionStartTime = Date.now();
+        console.log('Question displayed at:', questionStartTime, 'for question:', question.question);
+
+        // Show timer indicator
+        if (timerDisplay) {
+            timerDisplay.style.display = 'block';
+        }
+    };
+
+    const updateProgressBar = () => {
+        const progress = ((quizState.currentQuestionIndex + 1) / quizState.questions.length) * 100;
+        progressBar.style.width = `${progress}%`;
+        progressBar.textContent = `Question ${quizState.currentQuestionIndex + 1} of ${quizState.questions.length}`;
+    };
+
+    startQuizBtn.addEventListener('click', () => {
+        // Reset UI
+        summaryDiv.style.display = 'none';
+        quizContainer.style.display = 'block';
+        quizSetup.style.display = 'none';
+        if (newQuizSection) {
+            newQuizSection.style.display = 'none';
+        }
+
+        // Clear old state from session storage and reset quiz state
+        sessionStorage.removeItem('quizState');
+        quizState = {
+            questions: [],
+            currentQuestionIndex: 0,
+            results: []
+        };
+
+        const questionCount = questionCountInput.value;
+        fetchQuestions(questionCount);
+    });
+
+    if (readAloudBtn) {
+        readAloudBtn.addEventListener('click', () => {
+            const questionText = questionDisplay.textContent;
+            readAloud(questionText);
         });
-
-        currentQuestionIndex++;
-        askNextQuestion();
-
-    } catch (error) {
-        console.error("Error submitting answer:", error);
-        updateUI('error', 'Could not evaluate your answer.');
     }
-}
 
-async function finishQuiz() {
-    updateUI('summarizing', 'Generating final report...');
-    
-    try {
-        const response = await fetch('/api/summarize-quiz', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ patient_id: patientId, results: sessionResults })
+    if (startNewQuizBtn) {
+        startNewQuizBtn.addEventListener('click', () => {
+            // Hide summary and quiz container
+            summaryDiv.style.display = 'none';
+            quizContainer.style.display = 'none';
+            if (newQuizSection) {
+                newQuizSection.style.display = 'none';
+            }
+
+            // Show quiz setup
+            quizSetup.style.display = 'block';
+
+            // Clear quiz state from session storage
+            sessionStorage.removeItem('quizState');
+
+            // Reset progress bar
+            progressBar.style.width = '0%';
+            progressBar.textContent = 'Question 0 of 0';
+
+            // Reset question count input to default
+            questionCountInput.value = 10;
+
+            // Clear displayed question and image
+            questionDisplay.textContent = '';
+            questionImage.src = '';
+
+            // Hide result div
+            resultDiv.style.display = 'none';
         });
-        if (!response.ok) throw new Error('Could not generate summary.');
-
-        const finalReport = await response.json();
-        displayFinalReport(finalReport);
-    } catch (error) {
-        console.error("Error finishing quiz:", error);
-        updateUI('error', 'Could not create report.');
     }
-}
 
-function displayFinalReport(report) {
-    quizScreen.classList.add('hidden');
-    reportScreen.classList.remove('hidden');
+    recordBtn.addEventListener('click', async () => {
+        try {
+            console.log('Starting recording...');
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
 
-    reportSummary.textContent = report.summary;
-    reportDetails.innerHTML = '';
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
 
-    report.results.forEach(item => {
-        const scoreColor = item.score >= 70 ? 'text-green-400' : item.score >= 40 ? 'text-yellow-400' : 'text-red-400';
-        const li = document.createElement('li');
-        li.className = 'bg-slate-800/50 p-4 rounded-lg';
-        li.innerHTML = `
-            <p class="font-semibold text-slate-300">Q: ${item.question_text}</p>
-            <p class="italic text-slate-400 my-1">A: "${item.transcribed_text}"</p>
-            <div class="flex justify-between items-center mt-2">
-                <p class="text-sm">${item.feedback}</p>
-                <p class="text-lg font-mono ${scoreColor}">${item.score}/100</p>
+            mediaRecorder.addEventListener('stop', () => {
+                const endTime = Date.now();
+
+                // Handle case where questionStartTime might not be set
+                if (!questionStartTime) {
+                    console.warn('questionStartTime not set, using default response time');
+                    questionStartTime = endTime - 3000; // Default to 3 seconds ago
+                }
+
+                let responseTime = (endTime - questionStartTime) / 1000;
+
+                // Ensure minimum response time of 0.1 seconds for realistic timing
+                responseTime = Math.max(responseTime, 0.1);
+
+                // Debug logging for response time calculation
+                console.log('Question start time:', questionStartTime);
+                console.log('Recording end time:', endTime);
+                console.log('Final response time:', responseTime);
+
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+                // Hide timer indicator
+                if (timerDisplay) {
+                    timerDisplay.style.display = 'none';
+                }
+
+                // Show processing state
+                recordBtn.innerHTML = '<span class="flex items-center justify-center"><div class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>Processing...</span>';
+                recordBtn.className = 'w-full sm:w-auto px-6 py-3 font-bold text-white bg-blue-500 dark:bg-blue-600 rounded-lg shadow-md dark:shadow-lg transition duration-300 cursor-not-allowed';
+                recordBtn.disabled = true;
+                recordBtn.style.display = 'block';
+                stopBtn.style.display = 'none';
+
+                submitAnswer(audioBlob, responseTime);
+            });
+
+            mediaRecorder.start();
+
+            // Update UI to show recording state
+            recordBtn.innerHTML = '<span class="flex items-center justify-center"><div class="animate-pulse w-3 h-3 bg-red-500 rounded-full mr-2"></div>Recording...</span>';
+            recordBtn.className = 'w-full sm:w-auto px-6 py-3 font-bold text-white bg-red-500 dark:bg-red-600 rounded-lg shadow-md dark:shadow-lg transition duration-300 cursor-not-allowed';
+            recordBtn.disabled = true;
+            recordBtn.style.display = 'block';
+
+            // Show stop button
+            stopBtn.innerHTML = '<span class="flex items-center justify-center"><svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><rect x="6" y="6" width="8" height="8"></rect></svg>Stop Recording</span>';
+            stopBtn.className = 'w-full sm:w-auto px-6 py-3 font-bold text-white bg-red-600 dark:bg-red-700 hover:bg-red-700 dark:hover:bg-red-800 rounded-lg shadow-md dark:shadow-lg transition duration-300 animate-pulse';
+            stopBtn.disabled = false;
+            stopBtn.style.display = 'block';
+
+            console.log('Stop button should now be visible:', stopBtn.style.display);
+            console.log('Stop button element:', stopBtn);
+
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            alert('Could not access microphone. Please check your permissions.');
+        }
+    });
+
+    stopBtn.addEventListener('click', () => {
+        console.log('Stop button clicked');
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+        }
+    });
+
+    const submitAnswer = async (audioBlob, responseTime) => {
+        const question = quizState.questions[quizState.currentQuestionIndex];
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'recording.webm');
+        formData.append('reference_answer_b64', btoa(question.answer));
+        formData.append('response_time', responseTime);
+
+        try {
+            const response = await fetch('/api/submit-answer', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            // Debug logging to verify response time is being captured
+            console.log('Response received:', result);
+            console.log('Response time captured:', result.response_time);
+
+            quizState.results.push({
+                question_text: question.question,
+                transcribed_text: result.transcribed_text,
+                score: result.score,
+                response_time: result.response_time,
+                reference_answer: result.reference_answer
+            });
+            sessionStorage.setItem('quizState', JSON.stringify(quizState));
+            displayResult(result);
+
+        } catch (error) {
+            console.error('Error submitting answer:', error);
+            resultDiv.textContent = 'Failed to evaluate your answer. Please try again.';
+            resultDiv.style.display = 'block';
+        }
+    };
+
+    const displayResult = (result) => {
+        transcribedTextElem.textContent = `You said: ${result.transcribed_text}`;
+        scoreElem.textContent = `Score: ${result.score}/100`;
+        feedbackElem.textContent = `Feedback: ${result.feedback}`;
+
+        // Add response time display
+        const responseTimeElem = document.getElementById('response-time');
+        if (responseTimeElem) {
+            responseTimeElem.textContent = `Response Time: ${(result.response_time || 0).toFixed(1)}s`;
+            responseTimeElem.style.display = 'block';
+        }
+
+        resultDiv.style.display = 'block';
+
+        setTimeout(() => {
+            loadNextQuestion();
+        }, 3000); // 3 second delay before loading next question
+    };
+
+    const loadNextQuestion = () => {
+        quizState.currentQuestionIndex++;
+        if (quizState.currentQuestionIndex < quizState.questions.length) {
+            displayQuestion();
+        } else {
+            summarizeQuiz();
+        }
+    };
+
+    if (nextQuestionBtn) {
+        nextQuestionBtn.addEventListener('click', loadNextQuestion);
+    }
+
+    const summarizeQuiz = async () => {
+        try {
+            // Ensure all results have response_time field for backward compatibility
+            const resultsWithResponseTime = quizState.results.map(result => ({
+                question_text: result.question_text,
+                transcribed_text: result.transcribed_text,
+                score: result.score,
+                response_time: result.response_time || 0, // Default to 0 if missing
+                reference_answer: result.reference_answer
+            }));
+
+            // Debug logging to verify response times are included
+            console.log('Quiz results being sent to summary:', resultsWithResponseTime);
+            console.log('Response times:', resultsWithResponseTime.map(r => r.response_time));
+
+            const response = await fetch('/api/summarize-quiz', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ results: resultsWithResponseTime })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Summary API error:', errorData);
+                throw new Error(`Server error: ${response.statusText}`);
+            }
+
+            const summary = await response.json();
+
+            // Debug logging to verify summary data
+            console.log('Summary received from API:', summary);
+            console.log('Summary results with response times:', summary.results);
+
+            displaySummary(summary);
+
+        } catch (error) {
+            console.error('Error summarizing quiz:', error);
+            summaryDiv.innerHTML = `
+                <div class="text-center p-6">
+                    <h2 class="text-xl sm:text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Quiz Complete!</h2>
+                    <p class="text-red-600 dark:text-red-400 mb-4">Failed to generate detailed summary, but here are your results:</p>
+                    <div class="space-y-4">
+                        ${quizState.results.map((result, index) => `
+                            <div class="p-4 sm:p-5 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100">Question ${index + 1}</h4>
+                                    <div class="flex items-center space-x-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${result.score >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : result.score >= 60 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}">
+                                            ${result.score}/100
+                                        </span>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                            ⏱️ ${(result.response_time || 0).toFixed(1)}s
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="text-sm sm:text-base">
+                                        <strong class="text-gray-800 dark:text-gray-100">Question:</strong>
+                                        <span class="text-gray-700 dark:text-gray-300 break-words">${result.question_text}</span>
+                                    </div>
+                                    <div class="text-sm sm:text-base">
+                                        <strong class="text-gray-800 dark:text-gray-100">Your Answer:</strong>
+                                        <span class="text-gray-700 dark:text-gray-300 break-words italic">"${result.transcribed_text}"</span>
+                                    </div>
+                                    <div class="text-sm sm:text-base">
+                                        <strong class="text-gray-800 dark:text-gray-100">Correct Answer:</strong>
+                                        <span class="text-gray-700 dark:text-gray-300 break-words">${result.reference_answer}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            summaryDiv.style.display = 'block';
+            if (newQuizSection) {
+                newQuizSection.style.display = 'block';
+            }
+        }
+    };
+
+    const displaySummary = (summary) => {
+        quizContainer.style.display = 'none';
+        summaryDiv.innerHTML = `
+            <h2 class="text-xl sm:text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Quiz Complete!</h2>
+            <h3 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-200">Summary</h3>
+            <p class="mb-4 text-sm sm:text-base text-gray-700 dark:text-gray-300">${summary.summary}</p>
+            <h3 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-200">Your Results</h3>
+            <div class="space-y-4">
+                ${summary.results.map((result, index) => `
+                    <div class="p-4 sm:p-5 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100">Question ${index + 1}</h4>
+                            <div class="flex items-center space-x-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${result.score >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : result.score >= 60 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}">
+                                    ${result.score}/100
+                                </span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                    ⏱️ ${(result.response_time || 0).toFixed(1)}s
+                                </span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="text-sm sm:text-base">
+                                <strong class="text-gray-800 dark:text-gray-100">Question:</strong>
+                                <span class="text-gray-700 dark:text-gray-300 break-words">${result.question_text}</span>
+                            </div>
+                            <div class="text-sm sm:text-base">
+                                <strong class="text-gray-800 dark:text-gray-100">Your Answer:</strong>
+                                <span class="text-gray-700 dark:text-gray-300 break-words italic">"${result.transcribed_text}"</span>
+                            </div>
+                            <div class="text-sm sm:text-base">
+                                <strong class="text-gray-800 dark:text-gray-100">Correct Answer:</strong>
+                                <span class="text-gray-700 dark:text-gray-300 break-words">${result.reference_answer}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-700">
+                <h4 class="text-xl sm:text-2xl font-semibold text-blue-800 dark:text-blue-100 text-center mb-2">Quiz Statistics</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm sm:text-base">
+                    <div class="text-center text-lg">
+                        <span class="font-medium text-blue-700 dark:text-blue-200">Average Score:</span>
+                        <span class="text-blue-800 dark:text-blue-100 font-bold">${summary.average_score.toFixed(2)}/100</span>
+                    </div>
+                    <div class="text-center text-lg">
+                        <span class="font-medium text-blue-700 dark:text-blue-200">Average Response Time:</span>
+                        <span class="text-blue-800 dark:text-blue-100 font-bold">${(summary.average_response_time || 0).toFixed(2)}s</span>
+                    </div>
+                    <div class="text-center text-lg">
+                        <span class="font-medium text-blue-700 dark:text-blue-200">Total Time:</span>
+                        <span class="text-blue-800 dark:text-blue-100 font-bold">${(summary.results.reduce((acc, r) => acc + (r.response_time || 0), 0)).toFixed(2)}s</span>
+                    </div>
+                </div>
             </div>
         `;
-        reportDetails.appendChild(li);
-    });
-}
+        summaryDiv.style.display = 'block';
+        if (newQuizSection) {
+            newQuizSection.style.display = 'block';
+        }
 
-function updateUI(state, message = '') {
-    currentState = state;
-    const controlBtnIcon = controlBtn.querySelector('i');
-    controlBtn.disabled = true;
-    controlBtn.className = "w-24 h-24 text-white rounded-full flex items-center justify-center text-4xl transition-all shadow-lg";
+        // Scroll to summary on mobile
+        if (window.innerWidth <= 640) {
+            summaryDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
 
-    statusText.textContent = message;
+    // Check for existing quiz state in sessionStorage
+    const savedState = sessionStorage.getItem('quizState');
+    if (savedState) {
+        try {
+            quizState = JSON.parse(savedState);
 
-    switch (state) {
-        case 'idle':
-            break;
-        case 'loading-session':
-        case 'getting-question':
-        case 'summarizing':
-            controlBtn.classList.add('bg-slate-500');
-            controlBtnIcon.className = 'fas fa-spinner fa-spin';
-            break;
-        case 'playing-question':
-            controlBtn.classList.add('bg-slate-500');
-            controlBtnIcon.className = 'fa-solid fa-volume-high';
-            break;
-        case 'ready-to-record':
-            controlBtn.disabled = false;
-            controlBtn.classList.add('bg-green-500', 'hover:bg-green-400');
-            controlBtnIcon.className = 'fa-solid fa-microphone';
-            break;
-        case 'recording':
-            controlBtn.disabled = false;
-            controlBtn.classList.add('bg-red-500', 'hover:bg-red-400', 'animate-pulse');
-            controlBtnIcon.className = 'fa-solid fa-stop';
-            break;
-        case 'evaluating':
-            controlBtn.classList.add('bg-purple-500');
-            controlBtnIcon.className = 'fas fa-spinner fa-spin';
-            break;
-        case 'error':
-            controlBtn.disabled = false;
-            controlBtn.classList.add('bg-yellow-500');
-            controlBtnIcon.className = 'fa-solid fa-exclamation-triangle';
-            break;
+            // Ensure backward compatibility - add response_time to existing results if missing
+            if (quizState.results) {
+                quizState.results = quizState.results.map(result => ({
+                    ...result,
+                    response_time: result.response_time || 0
+                }));
+            }
+
+            if (quizState.currentQuestionIndex < quizState.questions.length) {
+                quizSetup.style.display = 'none';
+                quizContainer.style.display = 'block';
+                displayQuestion();
+            } else {
+                summarizeQuiz();
+            }
+        } catch (error) {
+            console.error('Error parsing saved quiz state:', error);
+            // Clear corrupted state and start fresh
+            sessionStorage.removeItem('quizState');
+            quizSetup.style.display = 'block';
+            quizContainer.style.display = 'none';
+            summaryDiv.style.display = 'none';
+            if (newQuizSection) {
+                newQuizSection.style.display = 'none';
+            }
+        }
+    } else { // If no saved state, ensure quiz setup is visible
+        quizSetup.style.display = 'block';
+        quizContainer.style.display = 'none';
+        summaryDiv.style.display = 'none';
+        if (newQuizSection) {
+            newQuizSection.style.display = 'none';
+        }
     }
-}
-
-function handleControlButtonClick() {
-    switch (currentState) {
-        case 'ready-to-record': startRecording(); break;
-        case 'recording': stopRecording(); break;
-        case 'error': startQuiz(); break;
-    }
-}
-
-startQuizBtn.addEventListener('click', startQuiz);
-controlBtn.addEventListener('click', handleControlButtonClick);
+});

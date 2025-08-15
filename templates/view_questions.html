@@ -1,0 +1,44 @@
+
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="my-4 sm:my-8 max-w-4xl mx-auto">
+    <h1 class="text-center text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-700 dark:text-gray-200">Manage Questions</h1>
+    <div class="text-center mb-4">
+        <a href="{{ url_for('show_add_question_form') }}" class="w-full sm:w-auto px-6 py-3 font-bold text-white bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg shadow-md dark:shadow-lg transition duration-300 text-base sm:text-lg">Add New Question</a>
+    </div>
+    <div class="bg-white dark:bg-gray-700 shadow-md dark:shadow-lg rounded-lg p-4 sm:p-6">
+        {% if questions %}
+            <ul>
+                {% for question in questions %}
+                    <li class="border-b dark:border-gray-600 py-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-1">
+                                <img src="{{ url_for('static', path='uploads/' + question.image_path) }}" alt="Question Image" class="w-full h-auto rounded-lg">
+                            </div>
+                            <div class="md:col-span-2">
+                                <form method="POST" action="{{ url_for('handle_edit_question', question_id=question.id) }}" enctype="multipart/form-data">
+                                    <div class="mb-4">
+                                        <label for="question-{{ question.id }}" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">Question</label>
+                                        <input type="text" id="question-{{ question.id }}" name="question" value="{{ question.question }}" class="shadow appearance-none border dark:border-gray-600 rounded w-full py-3 px-3 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 leading-tight focus:outline-none focus:shadow-outline dark:focus:shadow-lg text-sm sm:text-base">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="answer-{{ question.id }}" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">Answer</label>
+                                        <input type="text" id="answer-{{ question.id }}" name="answer" value="{{ question.answer }}" class="shadow appearance-none border dark:border-gray-600 rounded w-full py-3 px-3 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 leading-tight focus:outline-none focus:shadow-outline dark:focus:shadow-lg text-sm sm:text-base">
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <button type="submit" class="px-4 py-2 font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg shadow-md transition duration-300">Save Changes</button>
+                                        <a href="{{ url_for('handle_delete_question', question_id=question.id) }}" class="px-4 py-2 font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-md transition duration-300">Delete</a>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-center text-gray-500 dark:text-gray-400">No questions found.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

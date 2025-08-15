@@ -1,0 +1,26 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <div class="my-4 sm:my-8 max-w-2xl mx-auto">
+        <h1 class="text-center text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-700 dark:text-gray-200">Add a New Question</h1>
+        <div class="bg-white dark:bg-gray-700 shadow-md dark:shadow-lg rounded-lg p-4 sm:p-6">
+            <form method="POST" action="{{ url_for('handle_add_question') }}" enctype="multipart/form-data">
+                <div class="mb-4 sm:mb-6">
+                    <label for="image" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">Image</label>
+                    <input type="file" class="shadow appearance-none border dark:border-gray-600 rounded w-full py-3 px-3 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 leading-tight focus:outline-none focus:shadow-outline dark:focus:shadow-lg text-sm sm:text-base" id="image" name="image" accept="image/*" required>
+                </div>
+                <div class="mb-4 sm:mb-6">
+                    <label for="question" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">Question</label>
+                    <input type="text" class="shadow appearance-none border dark:border-gray-600 rounded w-full py-3 px-3 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 leading-tight focus:outline-none focus:shadow-outline dark:focus:shadow-lg text-sm sm:text-base" id="question" name="question" required placeholder="Enter the question text">
+                </div>
+                <div class="mb-6 sm:mb-8">
+                    <label for="answer" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">Answer</label>
+                    <input type="text" class="shadow appearance-none border dark:border-gray-600 rounded w-full py-3 px-3 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 leading-tight focus:outline-none focus:shadow-outline dark:focus:shadow-lg text-sm sm:text-base" id="answer" name="answer" required placeholder="Enter the expected answer">
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 font-bold text-white bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg shadow-md dark:shadow-lg transition duration-300 text-base sm:text-lg">Add Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

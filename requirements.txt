@@ -9,3 +9,4 @@ langchain
 langchain-google-genai
 python-multipart
 aiofiles
+psycopg2-binary==2.9.9
