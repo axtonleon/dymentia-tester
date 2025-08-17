@@ -27,7 +27,8 @@ aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
 parser = PydanticOutputParser(pydantic_object=schemas.Evaluation)
 
 prompt_template = PromptTemplate(
-    template="""You are an expert evaluator. Your task is to semantically compare a user's answer to a reference answer and provide a score and feedback.{format_instructions}Reference Answer: "{reference_answer}" User's Answer: "{user_answer}" """,
+    template="""You are an expert evaluator. Your task is to semantically compare a user's answer to a reference answer and provide a score and feedback.
+    {format_instructions}Reference Answer: "{reference_answer}" User's Answer: "{user_answer}" """,
     input_variables=["reference_answer", "user_answer"],
     partial_variables={"format_instructions": parser.get_format_instructions()},
 )
