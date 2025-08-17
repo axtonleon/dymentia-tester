@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
 import models, schemas
 
-def create_question(db: Session, question: schemas.QuestionCreate, image_path: str):
+def create_question(db: Session, question: schemas.QuestionCreate):
     db_question = models.Question(
-        image_path=image_path,
+        image_path=question.image_path,
         question=question.question,
         answer=question.answer
     )

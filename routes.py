@@ -46,7 +46,7 @@ async def handle_add_question(
 
     # Create a new question
     question_data = schemas.QuestionCreate(question=question, answer=answer, image_path=image_filename)
-    services.create_question(db=db, question=question_data, image_path=image_filename)
+    services.create_question(db=db, question=question_data)
 
     return templates.TemplateResponse("home.html", {"request": request})
 
