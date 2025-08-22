@@ -2,18 +2,18 @@ from pydantic import BaseModel, Field
 from typing import List
 
 class QuestionBase(BaseModel):
-    image_path: str
+    image_filename: str
     question: str
     answer: str
 
 class QuestionCreate(QuestionBase):
-    pass
+    image_data: bytes  # Binary image data
 
 class Question(QuestionBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class QuestionUpdate(BaseModel):
     question: str

@@ -1,13 +1,11 @@
 from typing import List
 import base64
-import secrets
-import os
 import random
 
 from fastapi import (
     APIRouter, Request, Depends, Form, File, UploadFile, HTTPException, Query
 )
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Response
 from sqlalchemy.orm import Session
 
 import services, schemas, models, ai_services
@@ -29,6 +27,26 @@ async def show_add_question_form(request: Request):
     """Shows the form to add a new question."""
     return templates.TemplateResponse("add_question.html", {"request": request})
 
+@router.get("/image/{question_id}")
+async def get_question_image(question_id: int, db: Session = Depends(get_db)):
+    """Serve image from database as binary data"""
+    question = services.get_question(db, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    # Determine content type from filename
+    file_extension = question.image_filename.split('.')[-1].lower()
+    content_type_map = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp'
+    }
+    content_type = content_type_map.get(file_extension, 'image/jpeg')
+
+    return Response(content=question.image_data, media_type=content_type)
+
 @router.post("/add-question", response_class=HTMLResponse)
 async def handle_add_question(
     request: Request,
@@ -37,15 +55,16 @@ async def handle_add_question(
     answer: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    # Save the image
-    file_extension = image.filename.split(".")[-1]
-    image_filename = f"{secrets.token_hex(16)}.{file_extension}"
-    image_path = os.path.join("static/uploads", image_filename)
-    with open(image_path, "wb") as f:
-        f.write(image.file.read())
+    # Read image data as binary
+    image_data = await image.read()
 
-    # Create a new question
-    question_data = schemas.QuestionCreate(question=question, answer=answer, image_path=image_filename)
+    # Create a new question with binary image data
+    question_data = schemas.QuestionCreate(
+        question=question,
+        answer=answer,
+        image_filename=image.filename,
+        image_data=image_data
+    )
     services.create_question(db=db, question=question_data)
 
     return templates.TemplateResponse("home.html", {"request": request})

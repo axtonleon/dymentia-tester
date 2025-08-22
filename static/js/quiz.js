@@ -55,11 +55,86 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const displayQuestion = () => {
         const question = quizState.questions[quizState.currentQuestionIndex];
-        questionDisplay.textContent = question.question;
-        questionImage.src = `/static/uploads/${question.image_path}`;
+
+        // Start with image viewing phase
+        startImageViewingPhase(question);
+    };
+
+    const startImageViewingPhase = (question) => {
+        // Show image and hide question initially
+        questionDisplay.textContent = '';
+        questionImage.src = `/image/${question.id}`;
+        questionImage.classList.remove('fade-out');
+        questionImage.classList.add('image-viewing-phase');
         resultDiv.style.display = 'none';
 
-        // Reset recording UI to initial state
+        // Hide recording controls during image viewing
+        recordBtn.style.display = 'none';
+        stopBtn.style.display = 'none';
+
+        if (nextQuestionBtn) {
+            nextQuestionBtn.style.display = 'none';
+        }
+
+        // Show image viewing instructions
+        const instructionText = "Take a good look at this image. You have 20 seconds to study it carefully.";
+        questionDisplay.innerHTML = `<div class="text-lg sm:text-xl font-semibold text-blue-600 dark:text-blue-400 mb-4 animate-pulse">${instructionText}</div>`;
+
+        // Read the instruction aloud
+        readAloud(instructionText);
+
+        // Show countdown timer
+        showCountdownTimer(20);
+
+        // After 18 seconds, start fade out animation
+        setTimeout(() => {
+            questionImage.classList.add('fade-out');
+        }, 18000);
+
+        // After 20 seconds, move to question phase
+        setTimeout(() => {
+            startQuestionPhase(question);
+        }, 20000);
+
+        updateProgressBar();
+    };
+
+    const showCountdownTimer = (seconds) => {
+        let remainingTime = seconds;
+        const countdownElement = document.createElement('div');
+        countdownElement.id = 'countdown-timer';
+        countdownElement.className = 'text-center mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-700';
+        countdownElement.innerHTML = `
+            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">${remainingTime}</div>
+            <div class="text-sm text-blue-500 dark:text-blue-300">seconds remaining to study the image</div>
+        `;
+
+        // Insert countdown after question display
+        questionDisplay.parentNode.insertBefore(countdownElement, questionDisplay.nextSibling);
+
+        const countdownInterval = setInterval(() => {
+            remainingTime--;
+            if (remainingTime > 0) {
+                countdownElement.innerHTML = `
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">${remainingTime}</div>
+                    <div class="text-sm text-blue-500 dark:text-blue-300">seconds remaining to study the image</div>
+                `;
+            } else {
+                clearInterval(countdownInterval);
+                countdownElement.remove();
+            }
+        }, 1000);
+    };
+
+    const startQuestionPhase = (question) => {
+        // Hide the image completely
+        questionImage.style.display = 'none';
+        questionImage.classList.remove('image-viewing-phase', 'fade-out');
+
+        // Show the question with styling
+        questionDisplay.innerHTML = `<div class="question-phase"><div class="text-lg sm:text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Now answer this question:</div><div class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">${question.question}</div></div>`;
+
+        // Show recording controls
         recordBtn.disabled = false;
         recordBtn.innerHTML = '<span class="flex items-center justify-center"><svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3"></circle></svg>Start Recording</span>';
         recordBtn.className = 'w-full sm:w-auto px-6 py-3 font-bold text-white bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg shadow-md dark:shadow-lg transition duration-300';
@@ -71,18 +146,18 @@ document.addEventListener('DOMContentLoaded', () => {
         stopBtn.className = 'w-full sm:w-auto px-6 py-3 font-bold text-white bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg shadow-md dark:shadow-lg transition duration-300';
         stopBtn.style.display = 'none';
 
-        if (nextQuestionBtn) {
-            nextQuestionBtn.style.display = 'none';
-        }
-        updateProgressBar();
-        readAloud(question.question);
+        // Read the question aloud after a brief pause
+        setTimeout(() => {
+            readAloud(`Now answer this question: ${question.question}`);
+        }, 500);
 
-        // Start timing when question is displayed
+        // Start timing when question phase begins (not when image is shown)
         questionStartTime = Date.now();
-        console.log('Question displayed at:', questionStartTime, 'for question:', question.question);
+        console.log('Question phase started at:', questionStartTime, 'for question:', question.question);
 
         // Show timer indicator
         if (timerDisplay) {
+            timerDisplay.textContent = "⏱️ Response timer started - Ready to record your answer";
             timerDisplay.style.display = 'block';
         }
     };
@@ -289,6 +364,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const loadNextQuestion = () => {
+        // Reset image display for next question
+        questionImage.style.display = 'block';
+
+        // Remove any existing countdown timer
+        const existingCountdown = document.getElementById('countdown-timer');
+        if (existingCountdown) {
+            existingCountdown.remove();
+        }
+
         quizState.currentQuestionIndex++;
         if (quizState.currentQuestionIndex < quizState.questions.length) {
             displayQuestion();

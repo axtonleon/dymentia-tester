@@ -3,9 +3,17 @@
 {% block content %}
     <div class="max-w-4xl mx-auto">
         <h1 class="text-center text-2xl sm:text-3xl font-bold my-4 sm:my-8 text-gray-700 dark:text-gray-200">Memory Quiz</h1>
-
         <div id="quiz-setup" class="p-4 sm:p-6 bg-white dark:bg-gray-700 shadow-md dark:shadow-lg rounded-lg">
-            <h2 class="text-center text-xl sm:text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-200">Quiz Setup</h2>
+            <h2 class="text-center text-xl sm:text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-200">Memory Quiz Setup</h2>
+            <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-700">
+                <h3 class="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">How this quiz works:</h3>
+                <ol class="text-sm sm:text-base text-blue-700 dark:text-blue-300 space-y-2 list-decimal list-inside">
+                    <li><strong>Study Phase:</strong> You'll see an image for 20 seconds. Study it carefully!</li>
+                    <li><strong>Question Phase:</strong> The image disappears and you'll hear a question about it.</li>
+                    <li><strong>Answer Phase:</strong> Record your answer using the microphone.</li>
+                    <li><strong>Evaluation:</strong> Get instant feedback on your response.</li>
+                </ol>
+            </div>
             <p class="text-center text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-6">Select the number of questions for your quiz.</p>
             <div class="mb-6 w-full max-w-md mx-auto">
                 <label for="question-count-input" class="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">Number of Questions:</label>
@@ -22,12 +30,12 @@
             </div>
             <div class="p-0">
                 <div id="question-area" class="text-center">
-                    <img id="question-image" src="" alt="Quiz Image" class="max-w-full h-auto rounded-lg mb-4 mx-auto" style="max-height: 300px;">
-                    <h3 id="question-display" class="text-lg sm:text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200 px-2"></h3>
+                    <img id="question-image" src="" alt="Quiz Image" class="max-w-full h-auto rounded-lg mb-6 mx-auto shadow-lg" style="max-height: 400px;">
+                    <div id="question-display" class="text-lg sm:text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200 px-2 min-h-[3rem]"></div>
                     <div id="timer-display" class="mb-4 text-sm text-gray-600 dark:text-gray-400" style="display: none;">
                         ⏱️ Timer started - Ready to record your answer
                     </div>
-                    <button id="read-aloud-btn" class="w-full sm:w-auto px-4 py-2 font-bold text-white bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 rounded-lg shadow-md dark:shadow-lg text-sm transition duration-300 mb-4 sm:mb-0">Read Aloud</button>
+                    <button id="read-aloud-btn" class="w-full sm:w-auto px-4 py-2 font-bold text-white bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-600 rounded-lg shadow-md dark:shadow-lg text-sm transition duration-300 mb-4 sm:mb-0" style="display: none;">Read Aloud</button>
                 </div>
 
                 <div id="controls" class="text-center my-6">

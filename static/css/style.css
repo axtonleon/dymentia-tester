@@ -433,3 +433,57 @@ nav {
     box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
     transform: translateY(-1px);
 }
+
+/* Two-phase quiz styling */
+#question-image {
+    transition: opacity 0.5s ease-in-out, transform 0.3s ease;
+}
+
+#question-image.fade-out {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+#question-display {
+    transition: opacity 0.3s ease-in-out;
+    min-height: 3rem;
+}
+
+#countdown-timer {
+    animation: countdown-pulse 1s ease-in-out infinite;
+}
+
+@keyframes countdown-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* Image viewing phase styling */
+.image-viewing-phase {
+    border: 3px solid #3b82f6;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.dark .image-viewing-phase {
+    border-color: #60a5fa;
+    box-shadow: 0 8px 25px rgba(96, 165, 250, 0.3);
+}
+
+/* Question phase styling */
+.question-phase {
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 2px solid #d1d5db;
+}
+
+.dark .question-phase {
+    background: linear-gradient(135deg, #374151, #4b5563);
+    border-color: #6b7280;
+}

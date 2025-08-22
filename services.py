@@ -3,7 +3,8 @@ import models, schemas
 
 def create_question(db: Session, question: schemas.QuestionCreate):
     db_question = models.Question(
-        image_path=question.image_path,
+        image_data=question.image_data,
+        image_filename=question.image_filename,
         question=question.question,
         answer=question.answer
     )

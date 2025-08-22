@@ -14,7 +14,7 @@
                     <li class="border-b dark:border-gray-600 py-4">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="md:col-span-1">
-                                <img src="{{ url_for('static', path='uploads/' + question.image_path) }}" alt="Question Image" class="w-full h-auto rounded-lg">
+                                <img src="{{ url_for('get_question_image', question_id=question.id) }}" alt="Question Image" class="w-full h-auto rounded-lg">
                             </div>
                             <div class="md:col-span-2">
                                 <form method="POST" action="{{ url_for('handle_edit_question', question_id=question.id) }}" enctype="multipart/form-data">
